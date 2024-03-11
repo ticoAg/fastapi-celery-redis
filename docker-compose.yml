@@ -2,24 +2,57 @@ version: "3.8"
 
 services:
 
-  db:
-    container_name: postgresql_db
-    image: postgres
+  app:
+    container_name: app
+    build: .
+    command: bash -c "uvicorn main:app --host 0.0.0.0 --port 8080"
+    volumes:
+      - ./src/:/app
+    ports:
+      - 8080:8080
+    links:
+      - redis
+      - celery_worker
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
     restart: always
-    ports:
-      - 5432:5432
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
 
-  pgadmin:
-    container_name: pgadmin
-    image: dpage/pgadmin4
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+  redis:
+    container_name: redis
+    image: redis:7.2.4-alpine
     ports:
-      - 5050:80
+      - "6379:6379"
+
+  celery_worker:
+    container_name: celery_worker
+    build: .
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - ./src/:/app
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - REDIS_HOST=${REDIS_HOST}
+    links:
+      - redis
     depends_on:
-      - db
+      - redis
+
+  flower:
+    container_name: flower
+    build: .
+    command: celery -A celery_worker.celery_app flower --port=5555
+    ports:
+      - 5556:5555
+    volumes:
+      - ./src/:/app
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - REDIS_HOST=${REDIS_HOST}
+    depends_on:
+      - app
+      - redis
+      - celery_worker
