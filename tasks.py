@@ -23,7 +23,7 @@ nest_asyncio.apply()
 load_dotenv(".env")
 
 redis_password = os.getenv("REDIS_PASSWORD", "redis_QPJSSf")
-redis_host = os.getenv("REDIS_HOST", "192.168.31.179")
+redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = os.getenv("REDIS_PORT", 6379)
 broker_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
 backend_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
@@ -58,25 +58,27 @@ async def async_task(request_param, data):
     return data
 
 
+def sync_task(request_param, data):
+    tid = request_param.id
+    print(f"[TaskID: {tid}] started...")
+    time.sleep(1)  # 使用 time.sleep 替代同步阻塞
+    print(f"[TaskID: {tid}] finished...")
+    return data
+
+
 @celery_app.task(name="predict", bind=True)
-async def predict(self, data):
-    start_time = time.time()
-    result = None
-    timeout_occurred = False
+def predict(self, data):
+    """_summary_
 
-    with Timeout(10, False):  # 设置 10 秒超时，不抛出异常
-        gt = eventlet.spawn(async_task, self.request, data)
-        result = await gt.wait()  # 等待异步任务完成
+    Args:
+        data (Any obj can serialized): 输入数据
 
-    if result is None and not timeout_occurred:
-        # 超时或 wait() 返回 None 的情况
-        result = {"error": "Task timeout or returned no result", "success": False}
-
-    # 不管是否超时，都记录耗时
-    cost = round(time.time() - start_time, 2)
-    if isinstance(result, dict):
-        result["cost"] = cost
-    else:
-        result = {"error": "Unexpected result type", "raw_result": str(result), "cost": cost, "success": False}
-
+    Returns:
+        dict: ...
+    """
+    tst = time.time()
+    # result = async_task(self.request, data)
+    result = sync_task(self.request, data)
+    t_cost = round(time.time() - tst, 2)
+    result["cost_time"] = t_cost
     return result

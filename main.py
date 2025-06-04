@@ -6,6 +6,13 @@
 @Contact :   1627635056@qq.com
 """
 
+import eventlet  # 新增：引入 eventlet 模块
+
+eventlet.monkey_patch()  # 新增：确保在导入其他模块前调用 monkey_patch()
+
+import asyncio
+import uuid
+
 from celery.result import AsyncResult
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -40,6 +47,13 @@ async def get_task(task_id: str):
         "result": task_result.result if task_result.state == "SUCCESS" else None,
     }
     return response
+
+
+@app.post("/start-task-async")
+async def async_start_task(data: dict):
+    await asyncio.sleep(0.5)
+    uid = uuid.uuid4()
+    return {"task_id": uid, "status": "done"}
 
 
 if __name__ == "__main__":
