@@ -7,23 +7,19 @@
 """
 
 import asyncio
-import functools
 import os
 import time
 
-import eventlet
-import nest_asyncio
+import celery_aio_pool as aio_pool
 from celery import Celery
 from dotenv import load_dotenv
-from eventlet.timeout import Timeout
 
-eventlet.monkey_patch()
-nest_asyncio.apply()
+assert aio_pool.patch_celery_tracer() is True
 
 load_dotenv(".env")
 
 redis_password = os.getenv("REDIS_PASSWORD", "redis_QPJSSf")
-redis_host = os.getenv("REDIS_HOST", "localhost")
+redis_host = os.getenv("REDIS_HOST", "192.168.31.179")
 redis_port = os.getenv("REDIS_PORT", 6379)
 broker_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
 backend_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
@@ -38,16 +34,8 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Shanghai",  # 使用东八区时间
     enable_utc=False,
-    worker_pool="eventlet",  # 在启动命令中
+    # worker_pool="eventlet",  # 在启动命令中
 )
-
-
-def sync(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        return asyncio.run(f(*args, **kwargs))
-
-    return wrapper
 
 
 async def async_task(request_param, data):
@@ -67,8 +55,8 @@ def sync_task(request_param, data):
 
 
 @celery_app.task(name="predict", bind=True)
-def predict(self, data):
-    """_summary_
+async def predict(self, data):
+    """支持异步 celery-aio-pool 目前不支持单进程多协程并发
 
     Args:
         data (Any obj can serialized): 输入数据
@@ -77,8 +65,30 @@ def predict(self, data):
         dict: ...
     """
     tst = time.time()
-    # result = async_task(self.request, data)
-    result = sync_task(self.request, data)
+    # result = await async_task(self.request, data)
+    await asyncio.sleep(1)
+    # result = sync_task(self.request, data)
+    result = {}
     t_cost = round(time.time() - tst, 2)
-    result["cost_time"] = t_cost
+    # result["cost_time"] = t_cost
+    return result
+
+
+@celery_app.task(name="funboost_predict", bind=True)
+async def funboost_predict(self, data):
+    """支持异步 celery-aio-pool 目前不支持单进程多协程并发
+
+    Args:
+        data (Any obj can serialized): 输入数据
+
+    Returns:
+        dict: ...
+    """
+    tst = time.time()
+    # result = await async_task(self.request, data)
+    await asyncio.sleep(1)
+    # result = sync_task(self.request, data)
+    result = {}
+    t_cost = round(time.time() - tst, 2)
+    # result["cost_time"] = t_cost
     return result

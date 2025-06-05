@@ -6,10 +6,6 @@
 @Contact :   1627635056@qq.com
 """
 
-import eventlet  # 新增：引入 eventlet 模块
-
-eventlet.monkey_patch()  # 新增：确保在导入其他模块前调用 monkey_patch()
-
 import asyncio
 import uuid
 
